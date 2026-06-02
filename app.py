@@ -418,8 +418,8 @@ SYSTEM_INSTRUCTION = """
 사용자가 제공한 행사 이름과 행사 소개만 바탕으로, 아래 양식에 맞춰 자연스럽고 실무적으로 작성한다.
 
 반드시 지킬 규칙:
-- '활동 기간' 항목은 절대 쓰지 않는다.
-- '필요 예산' 항목은 제목만 쓰고, 그 아래에는 아무 내용도 쓰지 않는다.
+- '활동 기간' 항목은 제목만 쓰고, 그 아래에는 아무 내용도 쓰지 않는다.
+- '필요 예산' 항목도 제목만 쓰고, 그 아래에는 아무 내용도 쓰지 않는다.
 - 예산, 가격, 구매 링크, 물품표, 물품 목록은 쓰지 않는다.
 - Markdown 제목 기호(#)를 쓰지 않는다.
 - 출력은 바로 제출 가능한 한국어 문서 형식으로만 작성한다.
@@ -430,6 +430,8 @@ SYSTEM_INSTRUCTION = """
 
     • 활동 명칭
 <행사 이름>
+
+    • 활동 기간
 
     • 활동 목적
 ...
@@ -499,7 +501,7 @@ def build_prompt(event_name: str, event_intro: str) -> str:
 {event_intro}
 
 위 내용을 바탕으로 기획서를 작성해줘.
-다시 강조하지만 '활동 기간' 항목은 포함하지 않고, '필요 예산'은 제목만 쓰고 내용은 비워둔다.
+다시 강조하지만 '활동 기간'과 '필요 예산'은 제목만 쓰고 내용은 비워둔다.
 """.strip()
 
 
@@ -599,17 +601,21 @@ def normalize_plan_sections(text: str) -> str:
         if match:
             section = re.sub(r"\s+", "", match.group(1))
             skipping = section in {"활동기간", "필요예산"}
+            if section == "활동기간":
+                result.append("    • 활동 기간")
+                result.append("")
+                continue
             if section == "필요예산":
                 result.append("    • 필요 예산")
                 result.append("")
-                continue
-            if section == "활동기간":
                 continue
             skipping = False
         if not skipping:
             result.append(line)
 
     cleaned = "\n".join(result)
+    if "활동 기간" not in cleaned:
+        cleaned = re.sub(r"(\n\s*•\s*활동\s*목적)", "\n\n    • 활동 기간\n\\1", cleaned, count=1)
     if "필요 예산" not in cleaned:
         cleaned = re.sub(r"(\n\s*•\s*활동\s*계획)", "\n\n    • 필요 예산\n\\1", cleaned, count=1)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
